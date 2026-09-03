@@ -11,8 +11,9 @@
     "azureb2c": {
       "location": "Europe",
       "countryCode": "DK",
-      "skuName": "PremiumP1",
-      "tier": "A0"
+      "skuName": "Base",
+      "tier": "A0",
+      "isGoLocalTenant": false
     }
   },
   "version": "0.8.0",
@@ -41,21 +42,9 @@
     }
   },
   "azureb2c": {
-    "signedOutCallBackPath": "/signout/B2C_1A_SIGNUP_SIGNIN",
-    "signUpSignInPolicyId": "B2C_1A_SIGNUP_SIGNIN",
+    "signedOutCallBackPath": "/signout/SignUpSignIn",
+    "signUpSignInPolicyId": "",
     "policyKeys": [
-      {
-        "name": "TokenSigningKeyContainer",
-        "options": "Generate",
-        "keyType": "RSA",
-        "keyUsage": "Signature"
-      },
-      {
-        "name": "TokenEncryptionKeyContainer",
-        "options": "Generate",
-        "keyType": "RSA",
-        "keyUsage": "Encryption"
-      },
       {
         "name": "RestApiKey",
         "options": "Manual",
@@ -185,7 +174,8 @@
           "resourceId": "00000003-0000-0000-c000-000000000000",
           "scopes": [
             "openid",
-            "offline_access"
+            "offline_access",
+            "User.ReadWrite"
           ]
         }
       ]
@@ -222,52 +212,15 @@
       ]
     },
     {
-      "name": "IdentityExperienceFramework",
+      "name": "permissions-token-extension",
       "certificate": false,
       "redirectUri": null,
       "redirectType": "web",
-      "setAccessTokenAcceptedVersionToOne": true,
       "appId": null,
       "objectId": null,
-      "idTokens": true,
-      "signInAudience": "single",
       "applicationIdUri": null,
-      "scopes": [
-        {
-          "name": "user_impersonation",
-          "description": "Access Identity Experience Framework",
-          "guid": null
-        }
-      ],
-      "permissions": [
-        {
-          "grantAdminConsent": true,
-          "resourceId": "00000003-0000-0000-c000-000000000000",
-          "scopes": [
-            "openid",
-            "offline_access"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "ProxyIdentityExperienceFramework",
-      "certificate": false,
-      "redirectUri": "myapp://auth",
-      "redirectType": "publicClient",
-      "setAccessTokenAcceptedVersionToOne": true,
-      "appId": null,
-      "objectId": null,
       "scopes": null,
-      "signInAudience": "single",
-      "isAllowPublicClientFlows": true,
       "permissions": [
-        {
-          "endpoint": "IdentityExperienceFramework",
-          "scopes": [
-            "user_impersonation"
-          ]
-        },
         {
           "grantAdminConsent": true,
           "resourceId": "00000003-0000-0000-c000-000000000000",

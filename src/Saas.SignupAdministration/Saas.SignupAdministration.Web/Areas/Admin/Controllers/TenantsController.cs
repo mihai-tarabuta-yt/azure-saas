@@ -27,9 +27,12 @@ public class TenantsController : Controller
     // GET: Admin/Tenants
     public async Task<IActionResult> Index()
     {
-        if (!Guid.TryParse(HttpContext.User.GetNameIdentifierId(), out Guid userId))
+        // CIAM issues a non-Guid "sub" claim (mapped by Microsoft.Identity.Web to the classic
+        // nameidentifier claim type, which is what GetNameIdentifierId() reads) - the stable Guid this
+        // code actually wants is the "oid" claim, read via GetObjectId() instead.
+        if (!Guid.TryParse(HttpContext.User.GetObjectId(), out Guid userId))
         {
-            throw new InvalidOperationException($"User name identifier is invalid '{HttpContext.User.GetNameIdentifierId()}'. The claim must be a Guid.");
+            throw new InvalidOperationException($"User name identifier is invalid '{HttpContext.User.GetObjectId()}'. The claim must be a Guid.");
         }
 
         var items = await _adminServiceClient.TenantsAsync(userId);

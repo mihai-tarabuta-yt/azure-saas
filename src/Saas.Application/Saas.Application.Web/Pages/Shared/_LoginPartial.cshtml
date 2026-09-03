@@ -6,6 +6,7 @@
         <!-- The Account controller is not defined in this project. Instead, it is part of Microsoft.Identity.Web.UI nuget package and
             it defines some well known actions such as SignUp/In, SignOut and EditProfile-->
         <li class="navbar-btn" style="padding-right:10px">
+            <a asp-page="/Profile/Edit" class="btn btn-outline-primary">Edit Profile</a>
         </li>
         <li class="navbar-btn">
             <form method="get" asp-area="MicrosoftIdentity" asp-controller="Account" asp-action="SignOut">

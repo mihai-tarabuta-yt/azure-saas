@@ -125,8 +125,11 @@ public class TenantsController : ControllerBase
         try
         {
             _logger.LogInformation("Creating a new tenant: {NewTenantName} for {OwnerID}, requested by {User}", tenantRequest.Name, tenantRequest.CreatorEmail, User?.Identity?.Name);
-            
-            if (! Guid.TryParse(User?.GetNameIdentifierId(), out var userId)) 
+
+            // CIAM issues a non-Guid "sub" claim (mapped by Microsoft.Identity.Web to the classic
+            // nameidentifier claim type, which is what GetNameIdentifierId() reads) - the stable Guid
+            // this code actually wants is the "oid" claim, read via GetObjectId() instead.
+            if (! Guid.TryParse(User?.GetObjectId(), out var userId))
             {
                 throw new InvalidOperationException("The the User Name Identifier must be a Guid.");
             }
@@ -375,8 +378,12 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
 
+    // Deliberately scoped by tenantId only, not also by userId: this is used to list every user's
+    // permissions within a tenant an admin already has Read access to (see UsersController.Index in
+    // Saas.SignupAdministration.Web) - requiring a separate per-target-user grant on top of tenant-level
+    // Read broke that listing as soon as a tenant had more than one member (the caller only ever holds a
+    // User.{ownId}.Self grant, never Read over other members).
     [SaasAuthorize<SaasTenantPermissionRequirement, TenantPermissionKind>(TenantPermissionKind.Read, "tenantId")]
-    [SaasAuthorize<SaasUserPermissionRequirement, UserPermissionKind>(UserPermissionKind.Read, "userId")]
     public async Task<ActionResult<IEnumerable<string>>> GetUserPermissions(Guid tenantId, Guid userId)
     {
         IEnumerable<string> permissions = await _permissionsServiceClient.GetUserPermissionsForTenantAsync(tenantId, userId);

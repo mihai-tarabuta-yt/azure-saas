@@ -12,6 +12,7 @@ using Saas.Identity.Helper;
 using Saas.Identity.Interface;
 using Polly;
 using Saas.Permissions.Service.Data.Context;
+using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationInsightsTelemetry();
@@ -64,6 +65,25 @@ builder.Services.Configure<SqlOptions>(
 
 builder.Services.Configure<MSGraphOptions>(
             builder.Configuration.GetRequiredSection(MSGraphOptions.SectionName));
+
+// Validates inbound bearer tokens from Microsoft Entra's custom authentication extension caller
+// (TokenIssuanceStartController) - a separate, named scheme so it doesn't become the app's default
+// auth and doesn't affect PermissionsController/CustomClaimsController, which stay on ApiKeyMiddleware.
+builder.Services.AddAuthentication()
+    .AddMicrosoftIdentityWebApi(
+        jwtBearerScheme: "TokenIssuanceStart",
+        configureJwtBearerOptions: static _ => { },
+        configureMicrosoftIdentityOptions: options =>
+        {
+            builder.Configuration.Bind(AzureAdCiamExtensionOptions.SectionName, options);
+
+            // Microsoft's custom-authentication-extension caller authenticates via client-credentials
+            // with no scp/roles claim on the resulting token by design (confirmed live: token passes
+            // signature/issuer/audience validation, but Microsoft.Identity.Web still rejects it with
+            // IDW10201 unless told authorization is handled another way). We already gate on audience -
+            // only this app's own identifierUri, issued by the CIAM tenant - so no further ACL is needed.
+            options.AllowWebApiToBeAuthorizedByACL = true;
+        });
 
 builder.Services.AddControllers();
 
@@ -118,11 +138,16 @@ if (app.Environment.IsDevelopment()) {
 app.UseHttpsRedirection();
 app.UseForwardedHeaders();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 if (! app.Environment.IsDevelopment())
 {
     // When now in development, add middleware to check for the presaz ence of a valid API Key
     // For debugging purposes, you can comment out 'app.UseMiddleware...'. This way you
     // don't have to add the secret to the header everytime you want to test something in swagger, for instance.
+    // Skips the TokenIssuanceStart route - Microsoft's custom authentication extension caller sends a
+    // bearer token, not x-api-key, and is authorized via the "TokenIssuanceStart" scheme instead.
     app.UseMiddleware<ApiKeyMiddleware>();
 }
 

@@ -157,13 +157,19 @@ function populate-configuration-manifest() {
     solution_prefix="$(get-value ".initConfig.naming.solutionPrefix" | cut -c 1-6)"
     long_solution_name="${solution_prefix}-${solution_name}-${postfix}"
 
-    # getting public ip address for user, for use in database firewall rules
-    dev_machine_ip="$(dig +short myip.opendns.com @resolver1.opendns.com)" ||
+    # getting public ip address for user, for use in database firewall rules.
+    # using an HTTPS-based IP echo service rather than the OpenDNS DNS-query trick, since the
+    # latter requires direct outbound UDP/53 to an arbitrary external resolver, which many
+    # corporate networks/firewalls block even when normal HTTPS egress works fine.
+    dev_machine_ip="$(curl --silent --fail --max-time 10 -4 https://ifconfig.me)"
+
+    if [[ -z "${dev_machine_ip}" ]]; then
         echo "Unable to determine your public IP address." |
-        log-output \
-            --level error \
-            --header "Critical error" ||
+            log-output \
+                --level error \
+                --header "Critical error"
         exit 1
+    fi
 
     put-value ".deployment.devMachine.ip" "${dev_machine_ip}"
 
@@ -218,13 +224,16 @@ function populate-configuration-manifest() {
     put-value ".deployment.resourceGroup.name" "rg-${long_solution_name}"
 
     # defining Azure B2C display name
-    b2c_display_name="b2c-${long_solution_name}"
+    b2c_display_name="ciam-${long_solution_name}"
     put-value ".deployment.azureb2c.displayName" "${b2c_display_name}"
 
-    # defining Azure B2C name only lowercase letters and numbers, and no more than 43 characters
+    # defining Azure B2C name: lowercase letters and numbers only, max 26 characters
+    # (ciamDirectories constraint - stricter than the old b2cDirectories' 43-char limit).
+    # The 'ciam' suffix keeps this distinct from any name previously attempted (and left in a
+    # stuck/tainted state) against the old b2cDirectories or the buggy 2023-05-17-preview API.
     b2c_name="$(sed -E 's/[^[:alnum:]]//g;s/[A-Z]/\L&/g' \
-        <<<"${solution_prefix}${solution_name}${postfix}" |
-        cut -c 1-43)"
+        <<<"${solution_prefix}${solution_name}${postfix}ciam" |
+        cut -c 1-26)"
 
     put-value ".deployment.azureb2c.domainName" "${b2c_name}.onmicrosoft.com"
     put-value ".deployment.azureb2c.name" "${b2c_name}"
@@ -242,6 +251,12 @@ function populate-configuration-manifest() {
     # defining Azure B2C service principal name
     service_principal_name="${solution_prefix}-usr-sp-${postfix}"
     put-value ".deployment.azureb2c.servicePrincipal.username" "${service_principal_name}"
+
+    # CIAM tenants enforce Security Defaults, which blocks interactive/device-code sign-in for
+    # automation. A manually-created app registration (with client-credentials auth) is used
+    # instead to log into the CIAM tenant for scripted provisioning - see readme for setup steps.
+    put-value ".deployment.azureb2c.automationApp.secretPath" \
+        "${ASDK_DEPLOYMENT_SCRIPT_PROJECT_BASE}/config/ciam-automation-app.secret"
 
     admin_api_name="admin-api-${long_solution_name}"
 
@@ -325,17 +340,6 @@ function populate-configuration-manifest() {
         "permissions-api" \
         "rolesApiUrl" \
         "https://${permission_api_name}.azurewebsites.net/api/CustomClaims/roles"
-
-    # adding redirecturl to IdentityExperienceFramework
-    put-app-value \
-        "IdentityExperienceFramework" \
-        "redirectUri" \
-        "https://${b2c_name}.b2clogin.com/${b2c_name}.onmicrosoft.com"
-
-    put-app-value \
-        "IdentityExperienceFramework" \
-        "applicationIdUri" \
-        "https://${b2c_name}.onmicrosoft.com/identityexperienceframework"
 }
 
 function intialize-context-for-automation-users() {

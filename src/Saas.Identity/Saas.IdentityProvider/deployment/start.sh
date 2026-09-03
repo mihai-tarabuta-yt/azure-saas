@@ -225,8 +225,8 @@ echo "Provisioning Azure B2C..." |
 put-value ".deployment.azureb2c.provisionState" "provisioning"
 # Creating Azure AD B2C Directory if it does not already exist
 (
-    "${SCRIPT_DIR}/create-azure-b2c.sh"
-    put-value ".deployment.azureb2c.provisionState" "successful"
+    "${SCRIPT_DIR}/create-azure-b2c.sh" &&
+        put-value ".deployment.azureb2c.provisionState" "successful"
 ) ||
     (
         put-value ".deployment.azureb2c.provisionState" "failed" &&
@@ -267,15 +267,15 @@ put-value ".deployment.identityFoundation.provisionState" "provisioning"
             exit 1
     )
 
-put-value ".deployment.iefPolicies.provisionState" "provisioning"
-# Uploading IEF custom policies
+put-value ".deployment.azureb2c.customAuthExtension.provisionState" "provisioning"
+# Wiring the CIAM custom authentication extension (replaces IEF's REST-GetPermissions/REST-GetRoles)
 (
-    "${SCRIPT_DIR}/upload-ief-policies.sh" &&
-        put-value ".deployment.iefPolicies.provisionState" "successful"
+    "${SCRIPT_DIR}/create-custom-auth-extension.sh" &&
+        put-value ".deployment.azureb2c.customAuthExtension.provisionState" "successful"
 ) ||
     (
-        put-value ".deployment.iefPolicies.provisionState" "failed" &&
-            echo "Upload of IEF policies failed." |
+        put-value ".deployment.azureb2c.customAuthExtension.provisionState" "failed" &&
+            echo "Custom authentication extension provisioning failed." |
             log-output \
                 --level error \
                 --header "Critical error" ||

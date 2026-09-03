@@ -37,6 +37,12 @@ param appConfigurationName string
 @description('The name of the certificate key.')
 param certificateKeyName string
 
+@description('The Client Id of the permissions-token-extension app registration (validates inbound calls from the CIAM custom authentication extension).')
+param tokenExtensionClientId string
+
+@description('The App ID URI of the permissions-token-extension app registration.')
+param tokenExtensionAudience string
+
 // Create object with array of objects containing the kayname and value to be stored in Azure App Configuration store.
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2022-01-31-preview' existing = {
@@ -44,6 +50,7 @@ resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@
 }
 
 var azureB2CKeyName = 'AzureB2C'
+var ciamExtensionKeyName = 'AzureAdCiamExtension'
 var permissionsApiKeyName = 'permissionsApi'
 
 var certificates = [
@@ -111,6 +118,30 @@ var appConfigStore = {
     {
       key: '${permissionsApiKeyName}:${azureB2CKeyName}:SignUpSignInPolicyId'
       value: signUpSignInPolicyId
+      isSecret: false
+      contentType: 'text/plain'
+    }
+    {
+      key: '${permissionsApiKeyName}:${ciamExtensionKeyName}:ClientId'
+      value: tokenExtensionClientId
+      isSecret: false
+      contentType: 'text/plain'
+    }
+    {
+      key: '${permissionsApiKeyName}:${ciamExtensionKeyName}:TenantId'
+      value: azureB2cTenantId
+      isSecret: false
+      contentType: 'text/plain'
+    }
+    {
+      key: '${permissionsApiKeyName}:${ciamExtensionKeyName}:Instance'
+      value: azureAdB2CInstanceURL
+      isSecret: false
+      contentType: 'text/plain'
+    }
+    {
+      key: '${permissionsApiKeyName}:${ciamExtensionKeyName}:Audience'
+      value: tokenExtensionAudience
       isSecret: false
       contentType: 'text/plain'
     }

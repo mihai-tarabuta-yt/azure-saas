@@ -120,8 +120,12 @@ public static class SR
     public const string DuplicateUserNameErrorCode = "DuplicateUserName";
 
     // Claim Types
-    public const string EmailAddressClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
-    public const string NameIdentifierClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
+    // Microsoft.Identity.Web remaps "oid" to the objectidentifier URI (the real GUID) and "sub" to the
+    // classic WS-Fed nameidentifier URI (an opaque non-GUID value) - confirmed live via a claims dump
+    // against this app's own CIAM sign-in. There is no "email" claim under CIAM's built-in user flow for
+    // this app's requested scopes, only "preferred_username".
+    public const string EmailAddressClaimType = "preferred_username";
+    public const string NameIdentifierClaimType = "http://schemas.microsoft.com/identity/claims/objectidentifier";
     public const string AuthenticationClassReferenceClaimType = "http://schemas.microsoft.com/claims/authnclassreference";
     public const string AuthenticationTimeClaimType = "auth_time";
     public const string GivenNamClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname";

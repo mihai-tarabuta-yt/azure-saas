@@ -131,7 +131,10 @@ function log-into-main() {
                 --level success
 }
 
-function log-into-b2c() { 
+
+# DEPRECATED NAME: despite "b2c" in this function's name (kept for compatibility with existing
+# callers/config.json), it logs into the CIAM tenant, not an Azure AD B2C one.
+function log-into-b2c() {
     local tenant_name="$1"
 
     if ! [[ "${tenant_name}" == "null" ]] \
@@ -141,7 +144,7 @@ function log-into-b2c() {
             echo "You are already logged in to the Azure B2C tenant: ${tenant_name}" \
                 | log-output \
                     --level info
-            return 
+            return
         fi
     fi
 
@@ -149,21 +152,33 @@ function log-into-b2c() {
         | log-output \
             --level info
 
-    echo "Please be patient, it sometimes take a little while for the login prompt to appear..." \
-        | log-output \
-            --level warning
+    # CIAM tenants enforce Security Defaults, which blocks interactive/device-code sign-in
+    # for automation (AADSTS530035 against the 'Microsoft Azure CLI' client). Logging in as a
+    # manually-provisioned service principal (client-credentials flow) sidesteps that gate,
+    # since Security Defaults' interactive-auth protections don't apply to app-only sign-in.
+    app_id="$( get-value ".deployment.azureb2c.automationApp.appId" )"
+    secret_path="$( get-value ".deployment.azureb2c.automationApp.secretPath" )"
 
-    echo "You must be logged into your Azure B2C tenant to continue." \
+    if [[ "${app_id}" == "null" || -z "${app_id}" ]] \
+        || ! [[ -s "${secret_path}" ]] ; then
+        echo "No CIAM automation app configured (.deployment.azureb2c.automationApp.appId/secretPath). See the readme for the one-time manual setup steps." \
+            | log-output \
+                --level error \
+                --header "Critical error"
+        exit 1
+    fi
+
+    echo "Logging in as the CIAM automation service principal..." \
         | log-output \
             --level info
 
-    sleep 1
-    
     az login \
-        --use-device-code \
+        --service-principal \
+        --username "${app_id}" \
+        --password "@${secret_path}" \
         --tenant "${tenant_name}" \
+        --allow-no-subscriptions \
         --only-show-errors \
-        --allow-no-subscription \
         --output none \
             || log-in-error
 
@@ -178,7 +193,7 @@ function log-into-b2c() {
 
     cache-session
 
-    put-value ".deployment.azureb2c.tenantId" "${tenant_id}"       
+    put-value ".deployment.azureb2c.tenantId" "${tenant_id}"
 }
 
 function cache-session() {

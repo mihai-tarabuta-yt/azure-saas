@@ -102,10 +102,8 @@ function is-valid-b2c-sku() {
     value="$( value-exist "${json_path}" )" \
         || exit 1
 
-    if ! [[ "${value}" == "Standard" \
-            || "${value}" == "PremiumP1" \
-            || "${value}" == "PremiumP2" ]]; then
-        echo "The value '${value}' of '${json_path}' is not a valid B2C Sku." \
+    if ! [[ "${value}" == "Base" ]]; then
+        echo "The value '${value}' of '${json_path}' is not a valid Microsoft Entra External ID (CIAM) Sku." \
             | log-output \
                 --level error
         exit 1

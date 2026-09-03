@@ -18,8 +18,12 @@ public static class SR
     public const string DefaultName = "default";
 
     // Claim Types
-    public const string EmailAddressClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
-    public const string NameIdentifierClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
+    // Microsoft.Identity.Web remaps "oid" to the objectidentifier URI (the real GUID) and "sub" to the
+    // classic WS-Fed nameidentifier URI (an opaque non-GUID value) - confirmed live via a claims dump
+    // against signupadmin-app's own CIAM sign-in (identical auth pipeline). There is no "email" claim
+    // under CIAM's built-in user flow for these apps' requested scopes, only "preferred_username".
+    public const string EmailAddressClaimType = "preferred_username";
+    public const string NameIdentifierClaimType = "http://schemas.microsoft.com/identity/claims/objectidentifier";
     public const string AuthenticationClassReferenceClaimType = "http://schemas.microsoft.com/claims/authnclassreference";
     public const string AuthenticationTimeClaimType = "auth_time";
     public const string GivenNameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname";

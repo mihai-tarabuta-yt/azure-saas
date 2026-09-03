@@ -12,6 +12,14 @@ public class ApiKeyMiddleware(IOptions<PermissionsApiOptions> permissionOptions,
 
     public async Task InvokeAsync(HttpContext context) {
 
+        // Microsoft's custom authentication extension caller sends a bearer token, not x-api-key -
+        // that route is authorized separately via the "TokenIssuanceStart" scheme (see Program.cs).
+        if (context.Request.Path.StartsWithSegments("/api/TokenIssuanceStart", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
         if (!context.Request.Headers.TryGetValue(API_KEY, out var extractedApiKey)) {
             context.Response.StatusCode = 401;
             await context.Response.WriteAsJsonAsync(new UnauthorizedResponse($"API Key must be provided on the {API_KEY} header"));

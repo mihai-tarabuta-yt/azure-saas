@@ -1,5 +1,20 @@
 # Frequently Asked Questions
 
+## CIAM Migration
+
+### This project talks about CIAM, so why do I still see "B2C" everywhere in file names, scripts, and config?
+
+Azure AD B2C is closed to new tenants, so this fork provisions a Microsoft Entra External ID
+(CIAM) tenant instead of a B2C one - see the readme's "Terminology note" section. The `b2c`/`B2C`
+naming that remains (script and function names, the `config.json` key `deployment.azureb2c`, the
+`Saas.Shared.Options.AzureB2C*` C# option classes and their matching App Configuration section
+names) is **deliberately left unrenamed** rather than removed: renaming it would also mean
+migrating already-provisioned environments' `config.json` and deployed App Configuration keys,
+which isn't worth the risk for a naming-only change. It's marked as deprecated at each definition
+point (see the comments in `AzureAdB2CBase.cs` and the deployment scripts under `deployment/script/`
+that still say `b2c` in their name) rather than silently left looking current. Read any `b2c`/`B2C`
+you encounter as "the CIAM tenant" - it's not a sign that this project reverted to using B2C.
+
 ## Scripting
 
 ### Why GNU Bash?

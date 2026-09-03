@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# DEPRECATED NAMING: "B2C" here is legacy - this configures app registrations in the CIAM
+# tenant, not an Azure AD B2C tenant. See ../../readme.md's "Terminology" note. Kept unrenamed
+# for compatibility with already-provisioned environments' config.json.
+
 set -u -e -o pipefail
 
 # shellcheck disable=SC1091
@@ -55,12 +59,12 @@ b2c_tenant_name="$(get-value ".deployment.azureb2c.name")" ||
         --header "Critical error" ||
     exit 1
 
-echo "Setting instance ${b2c_tenant_name}.b2clogin.com" |
+echo "Setting instance ${b2c_tenant_name}.ciamlogin.com" |
     log-output \
         --level info \
         --header "Azure B2C Instance"
 
-put-value ".deployment.azureb2c.instance" "https://${b2c_tenant_name}.b2clogin.com"
+put-value ".deployment.azureb2c.instance" "https://${b2c_tenant_name}.ciamlogin.com"
 
 # iterate through the Bash array of app registrations
 for app in "${app_reg_array[@]}"; do

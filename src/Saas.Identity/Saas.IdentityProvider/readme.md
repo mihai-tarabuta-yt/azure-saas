@@ -2,6 +2,20 @@
 
 This deployment script provisions and configures the Azure services defining the SaaS Identify Foundation, the back-bone of the Azure SaaS Dev Kit. 
 
+## Terminology note: "B2C" now means CIAM
+
+Azure AD B2C is closed to new tenant creation, so this fork of the ASDK provisions a
+**Microsoft Entra External ID (CIAM)** tenant instead - see the `Microsoft.AzureActiveDirectory/ciamDirectories`
+resource in [`deployment/bicep/deployAzureB2c.bicep`](./deployment/bicep/deployAzureB2c.bicep).
+
+You will still see `b2c`/`B2C`/`azureb2c` in file names, script/function names, the `config.json`
+key `deployment.azureb2c`, and C# option class names (`Saas.Shared.Options.AzureB2C*`). That naming
+is **deprecated, not accurate** - it's kept as-is on purpose so already-provisioned environments'
+`config.json` and deployed App Configuration keys keep working unchanged, not because this still
+targets B2C. Wherever you see `b2c` below, read it as "the CIAM tenant". A handful of the
+newer files added by this migration (e.g. `AzureAdCiamExtensionOptions.cs`) use correct CIAM-based
+naming instead - that's the pattern to follow for anything new.
+
 ## Before You begin
 
 Before you begin, you should [fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) this GitHub repository to you own GitHub account to make it your own.
@@ -131,10 +145,11 @@ The `initConfig` section of `config.json`must be filled out manually (see more d
       "solutionName": "test" // leave as 'test' or change to some other name
     },
     "azureb2c": {
-      "location": "Europe", // enter a valid Azure B2C region here. This is not the same as 'location' above.
+      "location": "Europe", // enter a valid CIAM region here (this key is legacy-named "azureb2c" - see the Terminology note above). Not the same as 'location' above.
       "countryCode": "DK", // enter a valid country code.
-      "skuName": "PremiumP1", // can be PremiumP1 or PremiumP2.
-      "tier": "A0" // leave this as 'A0'
+      "skuName": "Base", // must be 'Base' - CIAM's live API rejects the old B2C SKUs (PremiumP1/PremiumP2).
+      "tier": "A0", // leave this as 'A0'
+      "isGoLocalTenant": false // set 'true' only for GoLocal-enabled countries (e.g. AU, JP) where you want in-country-only data residency.
     }
   },... // leave the remaining part of the configuration manifest unchanged for now.
 ```
@@ -187,10 +202,11 @@ Other values in `initConfig`:
 | ---------------------- | --------- | ------------------------------------------------------------ |
 | `solutionPrefix`       | asdk      | The suggestion is to leave it as-is.                         |
 | `solutionName`         | test      | The suggestion is to leave it as default or limit it to four letters. |
-| `azureb2c/location`    | N/A       | Note that this is not the same as the location above, but is rather the names of the Azure AD B2C regions available. Unfortunately, there's currently no command available for getting the list. |
+| `azureb2c/location`    | N/A       | Legacy key name (see Terminology note above) - it configures the CIAM tenant's region. Not the same as the `location` above. Unfortunately, there's currently no command available for getting the list. |
 | `azureb2c/countryCode` | N/A       | An available ISO country code                                |
-| `azureb2c/skuName`     | PremiumP1 | Available options are `PremiumP1` or `PremiumP2`  |
+| `azureb2c/skuName`     | Base      | Must be `Base` - CIAM's live API rejects the old B2C SKUs (`PremiumP1`/`PremiumP2`), even though Microsoft's published schema docs still list those. |
 | `azureb2c/tier`        | A0        | No known alternatives at the moment, please leave it as-is.  |
+| `azureb2c/isGoLocalTenant` | false | Only set `true` for GoLocal-enabled countries (e.g. `AU`, `JP`) where `countryCode` should get in-country-only data residency instead of the standard regional pool. |
 
 ### Running the script 
 
@@ -204,9 +220,88 @@ While running the script the second time, you will be asked to log in once, and 
 
    > *Info*: The script is smart enough to utilize your existing  Azure token, that is cached and persisted, outside of the container.
 
-2. The second login cannot be avoided as it is for logging into the Azure B2C Tenant that is just being created, as part of the deployment script. This login is needed to make any further changes to the Azure B2C tenant. 
+2. The second login cannot be avoided as it is for logging into the CIAM Tenant that is just being created, as part of the deployment script. This login is needed to make any further changes to the CIAM tenant - and requires Task 1 below to be done first (CIAM blocks the interactive login this step would otherwise use).
 
-   > *Info*: The script will cache this login session too, so that if you need to run the script multiple times, you will not be asked to log in to your Azure AD B2C tenant again. The login session for Azure B2C is cached here: `$HOME/asdk/.cache/`.
+   > *Info*: The script will cache this login session too, so that if you need to run the script multiple times, you will not be asked to log in to your CIAM tenant again. The login session is cached here: `$HOME/asdk/.cache/`.
+
+## CIAM Manual Setup Steps (Required)
+
+CIAM has two things that cannot be scripted today and must be done by hand, once per environment.
+Both are one-time steps - once done, `./run.sh` will not ask for them again.
+
+### Task 1: Create the CIAM automation service principal
+
+**Why:** CIAM tenants enforce Security Defaults, which blocks the interactive/device-code sign-in
+`az login` normally uses for automation - even for a Global Administrator. Everything the
+deployment script does *inside* the CIAM tenant (app registrations, the custom authentication
+extension, etc.) instead logs in as a dedicated service principal using a client secret
+(client-credentials flow, which Security Defaults does not block).
+
+**When you'll hit this:** the *second* time you run `./run.sh` (after filling in `initConfig`),
+the script will create the CIAM tenant itself, then almost immediately try to log into it and
+fail with:
+
+```
+No CIAM automation app configured (.deployment.azureb2c.automationApp.appId/secretPath). See the readme for the one-time manual setup steps.
+```
+
+That's your cue to do this task, then re-run `./run.sh`.
+
+**Steps:**
+
+1. Go to the [Microsoft Entra admin center](https://entra.microsoft.com), and switch to your
+   CIAM tenant (top-right account menu → **Switch tenant** → pick the tenant whose domain matches
+   `deployment.azureb2c.domainName` in your `config.json`, e.g. `<yourprefix>.onmicrosoft.com`).
+2. **Identity → Applications → App registrations → New registration.**
+   - Name: anything recognizable, e.g. `ciam-automation`.
+   - Supported account types: **Accounts in this organizational directory only** (single tenant).
+   - Redirect URI: leave empty - this app never signs a user in interactively.
+   - Click **Register**.
+3. Copy the **Application (client) ID** shown on the app's Overview page - you'll need it in step 6.
+4. **Certificates & secrets → Client secrets → New client secret.** Give it a description and
+   expiry, then click **Add**. **Copy the secret's *Value* immediately** - it is only ever shown once.
+5. **API permissions → Add a permission → Microsoft Graph → Application permissions**, and add all
+   of the following, then click **Grant admin consent for &lt;tenant&gt;**:
+   - `Application.ReadWrite.All`
+   - `AppRoleAssignment.ReadWrite.All`
+   - `DelegatedPermissionGrant.ReadWrite.All`
+   - `CustomAuthenticationExtension.ReadWrite.All`
+   - `EventListener.ReadWrite.All`
+6. Back on your machine, wire the app into the deployment config:
+   - Paste the secret **value** from step 4 into a new file at
+     `deployment/config/ciam-automation-app.secret` (plain text, just the secret value, no
+     surrounding quotes). This file is gitignored - it never gets committed.
+   - Open `deployment/config/config.json` and set `.deployment.azureb2c.automationApp.appId` to
+     the Application (client) ID from step 3 (the sibling `secretPath` key is already populated
+     for you by the script - only `appId` needs manual entry).
+7. Re-run `./run.sh`. It should now log into the CIAM tenant as this service principal and continue.
+
+### Task 2: Create the CIAM sign-up/sign-in user flow
+
+**Why:** unlike everything else CIAM-related, there is currently no Graph API to *create* a user
+flow in an external tenant - only to attach an existing one to an app, or manage it afterward. This
+is a genuine, permanent portal-only step, not something a future script could pick up.
+
+**When you'll hit this:** it doesn't block `./run.sh` itself (nothing in the automated pipeline
+depends on it), but signing in to `saas-app` or `signupadmin-app` will not work until it's done - do
+this before your first end-to-end sign-in test.
+
+**Steps:**
+
+1. In the [Microsoft Entra admin center](https://entra.microsoft.com), CIAM tenant selected:
+   **Identity → External Identities → User flows → New user flow**.
+2. Name it `SignUpSignIn`.
+3. Identity providers: select **Email accounts** → **Email with password** (this single flow
+   covers sign-up, sign-in, *and* self-service password reset - CIAM folds password reset into
+   the standard flow, unlike B2C's separate policy).
+4. Under **Collect attributes**, pick whichever attributes you want collected at sign-up (e.g.
+   Display Name), then click **Create**.
+5. Open the new user flow → **Applications → Add application**, and add `saas-app`. Repeat for
+   `signupadmin-app` if you're also deploying [Saas.SignupAdministration](../../Saas.SignupAdministration/README.md).
+   (An app can only be attached to one user flow at a time.)
+6. No `config.json` changes are needed for this step - `azureb2c.signUpSignInPolicyId` is
+   deliberately left as `""`, which makes `Microsoft.Identity.Web` auto-build the plain CIAM v2.0
+   authority instead of a B2C-style named-policy authority.
 
 ## What If Something Goes Wrong?
 

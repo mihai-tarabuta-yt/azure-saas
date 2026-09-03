@@ -112,8 +112,11 @@ def patch_paramenters_file(
 
     parameters['parameters'].update(get_app_value(config, app_name, 'appId', 'clientId'))
     parameters['parameters'].update(get_app_value(config, app_name, 'baseUrl', 'baseUrl'))
-    
+
     parameters['parameters'].update(get_app_value(config, app_name, 'certificateKeyName', 'certificateKeyName'))
+
+    parameters['parameters'].update(get_app_value(config, 'permissions-token-extension', 'appId', 'tokenExtensionClientId'))
+    parameters['parameters'].update(get_app_value(config, 'permissions-token-extension', 'applicationIdUri', 'tokenExtensionAudience'))
 
     with open(paramenter_file, 'w') as f:
         f.write(json.dumps(parameters, indent=4))

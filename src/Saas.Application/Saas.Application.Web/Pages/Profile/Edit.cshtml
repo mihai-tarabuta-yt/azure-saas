@@ -1,0 +1,29 @@
+@page
+@model Saas.Application.Web.Pages.Profile.EditModel
+@{
+    ViewData["Title"] = "Edit Profile";
+}
+
+<div class="container">
+    <h1 class="display-5 fw-normal">Edit Profile</h1>
+
+    @if (Model.SaveSucceeded)
+    {
+        <div class="alert alert-success" role="alert">Your profile has been updated.</div>
+    }
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <form method="post" class="col-md-5">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="mb-3">
+            <label asp-for="Input.DisplayName" class="form-label"></label>
+            <input asp-for="Input.DisplayName" class="form-control" />
+            <span asp-validation-for="Input.DisplayName" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>

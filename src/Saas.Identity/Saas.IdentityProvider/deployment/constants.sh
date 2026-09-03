@@ -3,6 +3,12 @@
 # disable unused variable warning https://www.shellcheck.net/wiki/SC2034
 # shellcheck disable=SC2034
 
+# DEPRECATED NAMING: this deployment used to target Azure AD B2C; it now targets Microsoft
+# Entra External ID (CIAM) - see the "Terminology" note in ../readme.md. "B2C"/"b2c" names
+# below (dir names, the "azureb2c" config.json key, script/function names like log-into-b2c)
+# are kept unrenamed on purpose - they're load-bearing for already-provisioned environments'
+# config.json - but now refer to the CIAM tenant, not a literal B2C one.
+
 # user directories
 BASE_AZURE_CONFIG_DIR="$HOME/.azure"
 B2C_USR_AZURE_CONFIG_DIR="${HOME}/b2c/.azure"

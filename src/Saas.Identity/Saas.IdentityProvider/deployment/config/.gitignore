@@ -4,3 +4,4 @@ identity-bicep-parameters.json
 main-bicep-parameters.json
 *.bak
 certificate-policy.json
+ciam-automation-app.secret
